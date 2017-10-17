@@ -275,7 +275,7 @@ class Core(object):
         self.cookies_file = cookies  # TODO: map self.cookies to requests.Session.cookies?
         self.timeout = timeout
         self.delay = delay
-        self.request_time = 0
+        self.prev_request_time = 0
         # db
         self._players = None
         self._nations = None
@@ -604,12 +604,14 @@ class Core(object):
         if method.upper() == 'GET':
             params['_'] = self._  # only for get(?)
             self._ += 1
-        if not fast:  # TODO: refactorization
-            time.sleep(max(self.request_time - time.time() + random.randrange(self.delay[0], self.delay[1] + 1), 0))  # respect minimum delay
-            self.r.options(url, params=params)
-        else:
-            time.sleep(max(self.request_time - time.time() + 1, 0))  # respect 1s minimum delay between requests
-        self.request_time = time.time()  # save request time for delay calculations
+
+        if not fast:
+          self.r.options(url, params=params)
+
+        self.sleep(fast)
+
+        self.prev_request_time = time.time()  # save request time for delay calculations
+
         if method.upper() == 'GET':
             rc = self.r.get(url, data=data, params=params, timeout=self.timeout)
         elif method.upper() == 'POST':
@@ -619,6 +621,8 @@ class Core(object):
         elif method.upper() == 'DELETE':
             rc = self.r.delete(url, data=data, params=params, timeout=self.timeout)
         self.logger.debug("response: {0}".format(rc.content))
+
+        # TODO: better error handling
         if not rc.ok:  # status != 200
             print(rc.headers)
             print(rc.status_code)
@@ -669,6 +673,16 @@ class Core(object):
                 self.credits = rc['credits']
         self.saveSession()
         return rc
+
+    def sleep(self, fast):
+      passed_time = time.time() - self.prev_request_time
+      expected_delay = 1
+      if not fast:
+        expected_delay = random.randrange(self.delay[0], self.delay[1] + 1) # end-of-interval in config is inclusive
+      to_sleep = expected_delay - passed_time
+
+      if to_sleep > 0:
+        time.sleep(to_sleep)
 
     def __sendToPile__(self, pile, trade_id=None, item_id=None):
         """Send to pile.
