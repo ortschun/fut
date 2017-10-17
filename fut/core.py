@@ -822,7 +822,7 @@ class Core(object):
     def search(self, ctype, level=None, category=None, assetId=None, defId=None,
                min_price=None, max_price=None, min_buy=None, max_buy=None,
                league=None, club=None, position=None, nationality=None, rare=False,
-               playStyle=None, start=0, page_size=16):
+               playStyle=None, start=0, page_size=16, fast = False):
         """Prepare search request, send and return parsed data as a dict.
 
         :param ctype: [development / ? / ?] Card type.
@@ -883,13 +883,14 @@ class Core(object):
         if playStyle:   params['playStyle'] = playStyle
 
         rc = self.__request__(method, url, params=params)  # TODO: catch 426 429 512 521 - temporary ban
+        results = rc.get('auctionInfo', ())
 
         # pinEvents
-        if start == 0:
+        if (fast is False or len(results) == 0) and start == 0:
             events = [self.pin.event('page_view', 'Transfer Market Results - List View')]
             self.pin.send(events)
 
-        return [itemParse(i) for i in rc.get('auctionInfo', ())]
+        return [itemParse(i) for i in results]
 
     def searchAuctions(self, *args, **kwargs):
         """Alias for search method, just to keep compatibility."""
